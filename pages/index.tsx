@@ -36,7 +36,6 @@ function HomePage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [image, setImage] = useState<HTMLImageElement>();
     const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
-    const zIndexOrder = useRef(1);
 
     const [layers, setLayers] = useState<Layer[]>([]);
 
@@ -44,35 +43,48 @@ function HomePage() {
     const [layerHistory, setLayerHistory] = useState<Layer[][]>([[]]);
     const [currentStep, setCurrentStep] = useState<number>(0);
 
+
+    console.log("render")
+
     useEffect(() => {
         draw();
-        console.log(layerHistory)
+        // console.log(layers);
+        canvasRef.current?.addEventListener('wheel', handleWheel);
+
+        return () => {
+            canvasRef.current?.removeEventListener('wheel', handleWheel);
+        }
+
     }, [layers]);
 
     // 
     const maxScaleFactor = 2;
     const minScaleFactor = 0.1;
-    const [zoomValue, setZoomValue] = useState(1);
-    const handleWheel = useCallback((e: WheelEvent) => {
-        if (layers.length === 0) return;
+    const handleWheel = (e: WheelEvent) => {
+        if (layers.length === 0 || largetZIndexRef.current === 0) return;
         e.preventDefault();
         const delta = -Math.sign(e.deltaY);
 
-        let newZoomValue = zoomValue
-        if ((zoomValue < maxScaleFactor && delta > 0) || (zoomValue > minScaleFactor && delta < 0)) {
-            newZoomValue = new Decimal(zoomValue).plus(delta * 0.1).toNumber();
+        // 滾輪放大將改成 現在選取的圖片放大
+        if (layers[largetZIndexRef.current - 1].type === 'image') {
+            const imageLayer = layers[largetZIndexRef.current - 1] as ImageLayer;
+            let newScale = imageLayer.scale;
+            if ((imageLayer.scale < maxScaleFactor && delta > 0) || (imageLayer.scale > minScaleFactor && delta < 0)) {
+                newScale = new Decimal(imageLayer.scale).plus(delta * 0.1).toNumber();
+            }
+            if (newScale !== imageLayer.scale) {
+                const newLayers = [...layers];
+                newLayers[largetZIndexRef.current - 1] = {
+                    ...imageLayer,
+                    scale: newScale
+                }
+                setLayers(newLayers);
+            }
         }
-        if (newZoomValue !== zoomValue) {
-            setZoomValue(newZoomValue);
-        }
-    }, [layers, zoomValue]);
-
-    canvasRef.current?.addEventListener('wheel', handleWheel);
+    };
 
     // 下一步驟是要加入index功能 看要雙向index還是甚麼
     // 概念上是 判斷滑鼠是否圖片上，如果在就可以進行編輯 (index也要是最上層的圖片)
-
-
     function draw() {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -110,7 +122,7 @@ function HomePage() {
         if (!canvas) return;
         const mouseX = event.clientX - canvas.offsetLeft;
         const mouseY = event.clientY - canvas.offsetTop;
-        console.log("mouseX : ", mouseX, "mouseY : ", mouseY)
+        // console.log("mouseX : ", mouseX, "mouseY : ", mouseY)
         // 判斷滑鼠是否在圖片上
         if (isMouseOverImage(mouseX, mouseY)) {
             console.log("mouse is on image:" + largetZIndexRef.current);
@@ -146,11 +158,6 @@ function HomePage() {
                     largetZIndexRef.current = layer.zIndex;
                     isMouseOverRef.current = true;
                 }
-
-                // ctx.translate(x + width / 2, y + height / 2);
-                // ctx.scale(layer.scale, layer.scale)
-                // ctx.translate(-(x + width / 2), -(y + height / 2));
-                // ctx.rect(x, y, width, height);
             }
             else {
                 if (ctx.isPointInPath(layer.path, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
@@ -162,32 +169,6 @@ function HomePage() {
         });
 
         return isMouseOverRef.current;
-
-
-        /// image能成功 但是其他的不行
-        // layers.forEach(layer => {
-        //     if (layer.type === 'image') {
-        //         const [x, y, width, height] = layer.imageRange;
-        //         const newX = layer.scale * (x + width / 2) - width / 2;
-        //         const newY = layer.scale * (y + height / 2) - height / 2;
-        //         const newWidth = layer.scale * width;
-        //         const newHeight = layer.scale * height;
-
-        //         if (mouseX > newX && mouseX < newX + newWidth && mouseY > newY && mouseY < newY + newHeight) {
-        //             largetZIndexRef.current = layer.zIndex;
-        //             isMouseOverRef.current = true;
-        //         }
-        //     }
-        //     else {
-        //         if (ctx.isPointInPath(layer.path, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
-        //             largetZIndexRef.current = layer.zIndex;
-        //             isMouseOverRef.current = true;
-        //         }
-        //     }
-
-        // });
-        // // requestAnimationFrame(draw);
-        // return isMouseOverRef.current;
     }
 
 
