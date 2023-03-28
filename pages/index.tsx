@@ -1,8 +1,9 @@
 import Head from "next/head";
 import { Decimal } from "decimal.js"
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Layout from '../components/layout';
+import { actionHistoryStyles } from "../components/styles";
 
 // 圖層的概念就是 他們要建立z-index的概念
 // 當然每一層都必須包含 圖片 或是 Path.2D
@@ -33,6 +34,11 @@ interface PathLayer {
 type Layer = ImageLayer | PathLayer;
 
 function HomePage() {
+
+    // const actionHistoryStyles = {
+    //     overflowY: 'scroll',
+    // };
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [image, setImage] = useState<HTMLImageElement>();
     const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
@@ -42,13 +48,16 @@ function HomePage() {
     // layer history用來記錄每一個步驟的layers
     const [layerHistory, setLayerHistory] = useState<Layer[][]>([[]]);
     const [currentStep, setCurrentStep] = useState<number>(0);
+    // 紀錄操作流程
+    const [actionHistory, setActionHistory] = useState<string[]>([]);
 
+
+    const largetZIndexRef = useRef(0);
+    const isMouseOverRef = useRef(false);
 
     console.log("render")
-
     useEffect(() => {
         draw();
-        // console.log(layers);
         canvasRef.current?.addEventListener('wheel', handleWheel);
 
         return () => {
@@ -123,16 +132,28 @@ function HomePage() {
         const mouseX = event.clientX - canvas.offsetLeft;
         const mouseY = event.clientY - canvas.offsetTop;
         // console.log("mouseX : ", mouseX, "mouseY : ", mouseY)
-        // 判斷滑鼠是否在圖片上
+        // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
         if (isMouseOverImage(mouseX, mouseY)) {
             console.log("mouse is on image:" + largetZIndexRef.current);
-            isMouseOverRef.current = false;
+            canvasRef.current?.addEventListener('mousemove', handleMouseMove);
         }
-
     }
 
-    const largetZIndexRef = useRef(0);
-    const isMouseOverRef = useRef(false);
+    // 滑鼠移動的事件
+    function handleMouseMove(event: MouseEvent) {
+        if (event.buttons === 1 && isMouseOverRef.current) {
+            console.log("move")
+        }
+    }
+
+    // 滑鼠放開的事件
+    function handleMouseUp(event: React.MouseEvent<HTMLCanvasElement>) {
+        isMouseOverRef.current = false;
+        canvasRef.current?.removeEventListener('mousemove', handleMouseMove);
+    }
+
+
+
     function isMouseOverImage(mouseX: number, mouseY: number) {
         const canvas = canvasRef.current;
         if (!canvas) return false;
@@ -200,6 +221,7 @@ function HomePage() {
         newHistory.push(newLayers);
         setLayerHistory(newHistory);
         setCurrentStep(currentStep + 1);
+        setActionHistory([...actionHistory, 'add']);
     }
 
     function handleDragStart(event: React.DragEvent<HTMLImageElement>) {
@@ -219,6 +241,9 @@ function HomePage() {
 
         setCurrentStep((prev) => (prev - 1));
         setLayers(layerHistory[currentStep - 1]);
+
+        setActionHistory([...actionHistory, 'undo']);
+
     }
 
 
@@ -226,6 +251,8 @@ function HomePage() {
         if (currentStep >= layerHistory.length - 1) return;
         setCurrentStep((prev) => (prev + 1));
         setLayers(layerHistory[currentStep + 1]);
+
+        setActionHistory([...actionHistory, 'redo']);
     }
 
 
@@ -240,6 +267,8 @@ function HomePage() {
         newHistory.push(newLayers);
         setLayerHistory(newHistory);
         setCurrentStep(currentStep + 1);
+
+        setActionHistory([...actionHistory, 'clear']);
     }
 
     return (
@@ -255,6 +284,7 @@ function HomePage() {
             <div className="flex">
                 <canvas ref={canvasRef}
                     onMouseDown={handleMouseDown}
+                    onMouseUp={handleMouseUp}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                 />
@@ -274,7 +304,21 @@ function HomePage() {
                         />
                     </div>
                 </div>
+                {/* 操作紀錄 */}
+                <div>
+                    <div>操作紀錄</div>
+                    <div style={actionHistoryStyles}>
+                        {actionHistory.map((action, index) => {
+                            return (
+                                <div key={index}>
+                                    {action}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
             </div>
+
         </Layout>
     )
 }
