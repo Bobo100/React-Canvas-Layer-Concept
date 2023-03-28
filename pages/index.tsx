@@ -1,6 +1,7 @@
 import Head from "next/head";
+import { Decimal } from "decimal.js"
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Layout from '../components/layout';
 
 // 圖層的概念就是 他們要建立z-index的概念
@@ -33,8 +34,9 @@ type Layer = ImageLayer | PathLayer;
 
 function HomePage() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [image2, setImage2] = useState<HTMLImageElement>();
+    const [image, setImage] = useState<HTMLImageElement>();
     const [startCoords, setStartCoords] = useState({ x: 0, y: 0 });
+    const zIndexOrder = useRef(1);
 
     const [layers, setLayers] = useState<Layer[]>([]);
 
@@ -47,7 +49,28 @@ function HomePage() {
         console.log(layerHistory)
     }, [layers]);
 
+    // 
+    const maxScaleFactor = 2;
+    const minScaleFactor = 0.1;
+    const [zoomValue, setZoomValue] = useState(1);
+    const handleWheel = useCallback((e: WheelEvent) => {
+        if (layers.length === 0) return;
+        e.preventDefault();
+        const delta = -Math.sign(e.deltaY);
 
+        let newZoomValue = zoomValue
+        if ((zoomValue < maxScaleFactor && delta > 0) || (zoomValue > minScaleFactor && delta < 0)) {
+            newZoomValue = new Decimal(zoomValue).plus(delta * 0.1).toNumber();
+        }
+        if (newZoomValue !== zoomValue) {
+            setZoomValue(newZoomValue);
+        }
+    }, [layers, zoomValue]);
+
+    canvasRef.current?.addEventListener('wheel', handleWheel);
+
+    // 下一步驟是要加入index功能 看要雙向index還是甚麼
+    // 概念上是 判斷滑鼠是否圖片上，如果在就可以進行編輯 (index也要是最上層的圖片)
 
 
     function draw() {
@@ -60,8 +83,12 @@ function HomePage() {
 
         if (layers.length === 0) return;
         layers.forEach(layer => {
+            ctx.save();
             if (layer.type === 'image') {
                 const [x, y, width, height] = layer.imageRange;
+                ctx.translate(x + width / 2, y + height / 2);
+                ctx.scale(layer.scale, layer.scale)
+                ctx.translate(-(x + width / 2), -(y + height / 2));
                 ctx.drawImage(layer.image, x, y, width, height);
             } else {
                 ctx.fillStyle = layer.fillColor;
@@ -70,29 +97,121 @@ function HomePage() {
                 ctx.fill(layer.path);
                 ctx.stroke(layer.path);
             }
+            ctx.restore();
         });
+
+        // requestAnimationFrame(draw);
     }
 
+
+    // 滑鼠點擊的事件 // 點擊的時候判斷在哪一個圖片上
+    function handleMouseDown(event: React.MouseEvent<HTMLCanvasElement>) {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const mouseX = event.clientX - canvas.offsetLeft;
+        const mouseY = event.clientY - canvas.offsetTop;
+        console.log("mouseX : ", mouseX, "mouseY : ", mouseY)
+        // 判斷滑鼠是否在圖片上
+        if (isMouseOverImage(mouseX, mouseY)) {
+            console.log("mouse is on image:" + largetZIndexRef.current);
+            isMouseOverRef.current = false;
+        }
+
+    }
+
+    const largetZIndexRef = useRef(0);
+    const isMouseOverRef = useRef(false);
+    function isMouseOverImage(mouseX: number, mouseY: number) {
+        const canvas = canvasRef.current;
+        if (!canvas) return false;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return false;
+
+        // 找出最上層的圖片
+        layers.forEach(layer => {
+            ctx.save();
+            if (layer.type === 'image') {
+                const [x, y, width, height] = layer.imageRange;
+                const rectPath = new Path2D();
+
+                const newX = x + (width / 2) * (1 - layer.scale);
+                const newY = y + (height / 2) * (1 - layer.scale);
+                const newWidth = width * layer.scale;
+                const newHeight = height * layer.scale;
+
+                // rectPath.rect(x, y, width, height);
+                rectPath.rect(newX, newY, newWidth, newHeight);
+
+                if (ctx.isPointInPath(rectPath, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
+                    largetZIndexRef.current = layer.zIndex;
+                    isMouseOverRef.current = true;
+                }
+
+                // ctx.translate(x + width / 2, y + height / 2);
+                // ctx.scale(layer.scale, layer.scale)
+                // ctx.translate(-(x + width / 2), -(y + height / 2));
+                // ctx.rect(x, y, width, height);
+            }
+            else {
+                if (ctx.isPointInPath(layer.path, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
+                    largetZIndexRef.current = layer.zIndex;
+                    isMouseOverRef.current = true;
+                }
+            }
+            ctx.restore();
+        });
+
+        return isMouseOverRef.current;
+
+
+        /// image能成功 但是其他的不行
+        // layers.forEach(layer => {
+        //     if (layer.type === 'image') {
+        //         const [x, y, width, height] = layer.imageRange;
+        //         const newX = layer.scale * (x + width / 2) - width / 2;
+        //         const newY = layer.scale * (y + height / 2) - height / 2;
+        //         const newWidth = layer.scale * width;
+        //         const newHeight = layer.scale * height;
+
+        //         if (mouseX > newX && mouseX < newX + newWidth && mouseY > newY && mouseY < newY + newHeight) {
+        //             largetZIndexRef.current = layer.zIndex;
+        //             isMouseOverRef.current = true;
+        //         }
+        //     }
+        //     else {
+        //         if (ctx.isPointInPath(layer.path, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
+        //             largetZIndexRef.current = layer.zIndex;
+        //             isMouseOverRef.current = true;
+        //         }
+        //     }
+
+        // });
+        // // requestAnimationFrame(draw);
+        // return isMouseOverRef.current;
+    }
+
+
+    // 這邊是控制拖移照片進入到畫布的部分
     function handleDragOver(event: React.DragEvent<HTMLCanvasElement>) {
         event.preventDefault();
     }
 
     function handleDrop(event: React.DragEvent<HTMLCanvasElement>) {
         event.preventDefault();
-        if (!image2) return;
+        if (!image) return;
 
         // 圖片的位置 = 滑鼠在瀏覽器的位置 - canvas的位置 - 一開始抓取的滑鼠在圖片的位置
         const x = event.clientX - canvasRef.current!.offsetLeft - startCoords.x;
         const y = event.clientY - canvasRef.current!.offsetTop - startCoords.y;
-        const width = image2.width;
-        const height = image2.height;
+        const width = image.width;
+        const height = image.height;
 
         const imageLayer: ImageLayer = {
             type: 'image',
             scale: 1,
             imageRange: [x, y, width, height],
-            image: image2,
-            zIndex: 0,
+            image: image,
+            zIndex: layers.length + 1,
         }
         const newLayers = [...layers, imageLayer];
         setLayers(newLayers);
@@ -102,20 +221,18 @@ function HomePage() {
         setCurrentStep(currentStep + 1);
     }
 
-    //
     function handleDragStart(event: React.DragEvent<HTMLImageElement>) {
         const startX = event.clientX - event.currentTarget.offsetLeft;
         const startY = event.clientY - event.currentTarget.offsetTop;
-        // setIsDraggable(true);
         setStartCoords({ x: startX, y: startY });
-        setImage2(event.currentTarget);
+        setImage(event.currentTarget);
     }
 
     function handleDragEnd(event: React.DragEvent<HTMLImageElement>) {
-        // setIsDraggable(false);
     }
 
 
+    /// 這邊是控制圖層的部分
     const handleUndo = () => {
         if (currentStep <= 0) return;
 
@@ -156,6 +273,7 @@ function HomePage() {
             </div>
             <div className="flex">
                 <canvas ref={canvasRef}
+                    onMouseDown={handleMouseDown}
                     onDragOver={handleDragOver}
                     onDrop={handleDrop}
                 />
