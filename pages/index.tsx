@@ -167,7 +167,7 @@ function HomePage() {
         const cavnasBox = canvas.getBoundingClientRect();
         const mouseX = new Decimal(event.clientX).minus(cavnasBox.left).times(canvas.width).div(cavnasBox.width).toNumber();
         const mouseY = new Decimal(event.clientY).minus(cavnasBox.top).times(canvas.height).div(cavnasBox.height).toNumber();
-        console.log(mouseX, mouseY)
+        // console.log(mouseX, mouseY)
         // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
         if (isMouseOverImage(mouseX, mouseY)) {
             console.log("mouse is on image:" + largetZIndexRef.current);
@@ -327,7 +327,7 @@ function HomePage() {
         // 滑鼠抓住在圖片上的位置
         startCoords.x = event.nativeEvent.offsetX;
         startCoords.y = event.nativeEvent.offsetY;
-        console.log("drag start", startCoords.x, startCoords.y)
+        // console.log("drag start", startCoords.x, startCoords.y)
         setStartCoords(startCoords);
         setImage(event.currentTarget);
     }
