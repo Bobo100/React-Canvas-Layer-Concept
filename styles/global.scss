@@ -48,8 +48,38 @@ canvas {
     border: 1px solid #fff;
 
     width: 500px;
+    height: 250px;
 }
 
 .relative {
     position: relative;
+}
+
+.border {
+    border: 1px solid #fff;
+}
+
+.padding-10 {
+    padding: 10px;
+}
+
+.padding-20 {
+    padding: 20px;
+}
+
+.overflow-y-scroll {
+    overflow-y: scroll;
+}
+
+.height-250 {
+    height: 250px;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.active {
+    background-color: #fff;
+    color: #000;
 }

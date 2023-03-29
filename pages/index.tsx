@@ -1,9 +1,11 @@
 import Head from "next/head";
 import { Decimal } from "decimal.js"
-import Image from "next/image";
+import ImageNextJs from "next/image";
 import { useEffect, useRef, useState } from "react";
 import Layout from '../components/layout';
 import { actionHistoryStyles } from "../components/styles";
+import InputImage from "../components/InputImage/InputImage";
+import uuid from "react-uuid";
 
 // 圖層的概念就是 他們要建立z-index的概念
 // 當然每一層都必須包含 圖片 或是 Path.2D
@@ -74,7 +76,7 @@ function HomePage() {
         canvasRef.current?.addEventListener('wheel', handleWheel);
 
         // console.log(layerHistory)
-        // console.log(layers)
+        console.log("layers", layers)
 
         return () => {
             canvasRef.current?.removeEventListener('wheel', handleWheel);
@@ -271,6 +273,7 @@ function HomePage() {
                 if (ctx.isPointInPath(rectPath, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
                     largetZIndexRef.current = layer.zIndex;
                     isMouseOver = true;
+                    // console.log("mouse is on image:" + largetZIndexRef.current)
                 }
             }
             else {
@@ -300,9 +303,9 @@ function HomePage() {
         const y = new Decimal(event.nativeEvent.offsetY).minus(startCoords.y).toNumber() * canvas.height / canvasBox.height;
         const width = image.width;
         const height = image.height;
-        console.log('mouseX:', event.nativeEvent.offsetX, 'mouseY:', event.nativeEvent.offsetY)
-        console.log('startCoords.x:', startCoords.x, 'startCoords.y:', startCoords.y)
-        console.log("x : ", x, "y : ", y, "width : ", width, "height : ", height)
+        // console.log('mouseX:', event.nativeEvent.offsetX, 'mouseY:', event.nativeEvent.offsetY)
+        // console.log('startCoords.x:', startCoords.x, 'startCoords.y:', startCoords.y)
+        // console.log("x : ", x, "y : ", y, "width : ", width, "height : ", height)
 
         const imageLayer: ImageLayer = {
             type: 'image',
@@ -369,19 +372,110 @@ function HomePage() {
         addACtionHistory('clear')
     }
 
+    const handleImageUpload = (imageData: string) => {
+        // 在這裡處理圖片數據 => 我看把圖片縮小放到中間好了
+
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const canvasBox = canvas.getBoundingClientRect();
+
+        const image = new Image();
+        image.src = imageData;
+        image.onload = () => {
+            const scaleFactor = Math.min(0.25, canvas.width / image.width);
+            const width = image.width * scaleFactor;
+            const height = image.height * scaleFactor;
+
+            const x = (canvas.width - width) / 2;
+            const y = (canvas.height - height) / 2;
+
+            const imageLayer: ImageLayer = {
+                type: 'image',
+                scale: 1,
+                imageRange: [x, y, width, height],
+                imageRangeOrigin: [x, y, width, height],
+                image: image,
+                zIndex: layers.length + 1,
+            }
+            const newLayers = [...layers, imageLayer];
+            setLayers(newLayers);
+            const newHistory = layerHistory.slice(0, currentStep + 1);
+            newHistory.push(newLayers);
+            setLayerHistory(newHistory);
+            setCurrentStep(currentStep + 1);
+            addACtionHistory('add')
+
+            largetZIndexRef.current = imageLayer.zIndex;
+        }
+    };
+
+    // 根據點選到的圖層，把largeZIndexRef.current設定成該圖層的zIndex 代表我們現在是要操作哪一個圖層
+    // 同時要再點選到的時候 增加樣式
+    const hadnleLayerChoose = (event: React.MouseEvent<HTMLDivElement, MouseEvent>, zIndex: number) => {
+        // 移除之前被選擇的 div 的 active class
+        const selectedDiv = event.currentTarget;
+        // 判斷是否已經有 active class
+        if (selectedDiv.classList.contains('active')) {
+            selectedDiv.classList.remove('active');
+            largetZIndexRef.current = 0;
+        } else {
+            // 移除之前被選擇的 div 的 active class
+            const prevSelectedDiv = document.querySelector('.active');
+            if (prevSelectedDiv) {
+                prevSelectedDiv.classList.remove('active');
+            }
+
+            // 加上當前被選擇的 div 的 active class
+            selectedDiv.classList.add('active');
+            largetZIndexRef.current = zIndex;
+        }
+    }
+
+    const handleLayerDragStart = (event: React.DragEvent<HTMLDivElement>, zIndex: number) => {
+        event.dataTransfer.setData('text/plain', zIndex.toString());
+    }
+
+    const handleLayerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+        event.preventDefault();
+    }
+
+    const handleLayerDrop = (event: React.DragEvent<HTMLDivElement>, zIndex: number) => {
+        event.preventDefault();
+        const draggedIndex = Number(event.dataTransfer.getData('text/plain'));
+        if (draggedIndex === zIndex) return;
+        // console.log(draggedIndex)
+
+        const newLayers = [...layers];
+        const draggedLayer = newLayers[draggedIndex];
+        newLayers.splice(draggedIndex, 1);
+        newLayers.splice(zIndex, 0, draggedLayer);
+        console.log("newLayers", newLayers)
+        setLayers(newLayers);
+        setLayerHistory([...layerHistory.slice(0, currentStep + 1), newLayers]);
+        setCurrentStep(currentStep + 1);
+        addACtionHistory('drag')
+
+        largetZIndexRef.current = draggedIndex;
+        // console.log(largetZIndexRef.current)
+    }
+
+
+
+
     return (
         <Layout>
             <Head>
                 <title>圖層</title>
             </Head>
-            <div className="control">
-                <div>{mousePosition.x}</div>
+            <div className="control flex">
+                {/* <div>{mousePosition.x}</div>
                 <div>{mousePosition.y}</div>
                 <div>{mouseInCanvasPosition.x}</div>
-                <div>{mouseInCanvasPosition.y}</div>
+                <div>{mouseInCanvasPosition.y}</div> */}
                 <button onClick={handleUndo}>上一步</button>
                 <button onClick={handleRedo}>下一步</button>
                 <button onClick={handleClear}>清除</button>
+                <InputImage labelId="image" placeholderText="請選擇圖片" onFileUpload={handleImageUpload} />
             </div>
             <div className="flex relative">
                 <canvas ref={canvasRef}
@@ -394,28 +488,69 @@ function HomePage() {
                 />
                 <div>
                     <div>
-                        <Image src="/images/profile.jpg" width={20} height={20} alt=""
+                        <ImageNextJs src="/images/01.jpg" width={20} height={20} alt=""
                             draggable
                             onDragStart={handleDragStart}
-                            // onDragEnd={handleDragEnd}
+                        // onDragEnd={handleDragEnd}
                         />
                     </div>
                     <div>
-                        <Image src="/images/profile.jpg" width={20} height={20} alt=""
+                        <ImageNextJs src="/images/02.jpg" width={20} height={20} alt=""
                             draggable
                             onDragStart={handleDragStart}
-                            // onDragEnd={handleDragEnd}
+                        // onDragEnd={handleDragEnd}
+                        />
+                    </div>
+                    <div>
+                        <ImageNextJs src="/images/03.jpg" width={20} height={20} alt=""
+                            draggable
+                            onDragStart={handleDragStart}
+                        // onDragEnd={handleDragEnd}
                         />
                     </div>
                 </div>
                 {/* 操作紀錄 */}
+
                 <div>
                     <div>操作紀錄</div>
-                    <div style={actionHistoryStyles}>
+                    <div style={actionHistoryStyles} className="overflow-y-scroll">
                         {actionHistory.map((action, index) => {
                             return (
-                                <div key={index}>
+                                <div key={uuid()} className="border padding-10">
                                     {action}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <div>
+                    <div>圖層</div>
+                    <div className="overflow-y-scroll height-250">
+                        {layers.map((layer, index) => {
+                            return (
+                                <div key={uuid()} className="border padding-10 cursor-pointer"
+                                    onClick={(event) => hadnleLayerChoose(event, layer.zIndex)}
+                                >
+                                    {layer.type} {layer.zIndex}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                <div>
+                    <div>圖層 (可修改順序 zIndex)</div>
+                    <div className="overflow-y-scroll height-250">
+                        {layers.map((layer, index) => {
+                            return (
+                                <div key={uuid()} className="border padding-10 cursor-pointer"
+                                    draggable
+                                    onDragStart={(event) => handleLayerDragStart(event, index)}
+                                    onDragOver={handleLayerDragOver}
+                                    onDrop={(event) => handleLayerDrop(event, index)}
+                                >
+                                    {layer.type} {layer.zIndex}
                                 </div>
                             )
                         })}
