@@ -60,23 +60,23 @@ function HomePage() {
     }
 
     // 
-    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-    const [mouseInCanvasPosition, setMouseInCanvasPosition] = useState({ x: 0, y: 0 });
+    // const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+    // const [mouseInCanvasPosition, setMouseInCanvasPosition] = useState({ x: 0, y: 0 });
 
     // 紀錄上一個滑鼠的位置
     const [isDragging, setIsDragging] = useState(false);
     const [lastMousePosition, setLastMousePosition] = useState({ x: 0, y: 0 });
 
-    const largetZIndexRef = useRef(0);
+    const selectImgIndex = useRef(0);
     const isMoveCheckRef = useRef(false);
 
-    console.log("render")
+    // console.log("render")
     useEffect(() => {
         draw();
         canvasRef.current?.addEventListener('wheel', handleWheel);
 
         // console.log(layerHistory)
-        console.log("layers", layers)
+        console.log("draw layers", layers)
 
         return () => {
             canvasRef.current?.removeEventListener('wheel', handleWheel);
@@ -88,13 +88,13 @@ function HomePage() {
     const maxScaleFactor = 2;
     const minScaleFactor = 0.1;
     const handleWheel = (e: WheelEvent) => {
-        if (layers.length === 0 || largetZIndexRef.current === 0) return;
+        if (layers.length === 0 || selectImgIndex.current === 0) return;
         e.preventDefault();
         const delta = -Math.sign(e.deltaY);
 
         // 滾輪放大將改成 現在選取的圖片放大
-        if (layers[largetZIndexRef.current - 1].type === 'image') {
-            const imageLayer = layers[largetZIndexRef.current - 1] as ImageLayer;
+        if (layers[selectImgIndex.current - 1].type === 'image') {
+            const imageLayer = layers[selectImgIndex.current - 1] as ImageLayer;
             let newScale = imageLayer.scale;
             if ((imageLayer.scale < maxScaleFactor && delta > 0) || (imageLayer.scale > minScaleFactor && delta < 0)) {
                 newScale = new Decimal(imageLayer.scale).plus(delta * 0.1).toNumber();
@@ -108,7 +108,7 @@ function HomePage() {
                 const newX = new Decimal(x).minus((newWidth - width) / 2).toNumber();
                 const newY = new Decimal(y).minus((newHeight - height) / 2).toNumber();
 
-                newLayers[largetZIndexRef.current - 1] = {
+                newLayers[selectImgIndex.current - 1] = {
                     ...imageLayer,
                     scale: newScale,
                     imageRange: [newX, newY, newWidth, newHeight]
@@ -160,6 +160,33 @@ function HomePage() {
             }
             ctx.restore();
         });
+
+        // const canvas = canvasRef.current;
+        // if (!canvas) return;
+        // const ctx = canvas.getContext("2d");
+        // if (!ctx) return;
+
+        // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // if (layers.length === 0) return;
+        // layers.forEach((layer, index) => { // 使用 z-index 对图层进行排序
+        //     layer.zIndex = index;
+        // });
+        // layers.sort((a, b) => (a.zIndex > b.zIndex) ? 1 : -1); // 根据 z-index 对图层进行排序
+        // layers.forEach(layer => {
+        //     ctx.save();
+        //     if (layer.type === 'image') {
+        //         const [x, y, width, height] = layer.imageRange;
+        //         ctx.drawImage(layer.image, x, y, width, height);
+        //     } else {
+        //         ctx.fillStyle = layer.fillColor;
+        //         ctx.strokeStyle = layer.strokeColor;
+        //         ctx.lineWidth = layer.stokeWidth;
+        //         ctx.fill(layer.path);
+        //         ctx.stroke(layer.path);
+        //     }
+        //     ctx.restore();
+        // });
     }
 
     // 滑鼠點擊的事件 // 點擊的時候判斷在哪一個圖片上
@@ -172,7 +199,7 @@ function HomePage() {
         // console.log(mouseX, mouseY)
         // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
         if (isMouseOverImage(mouseX, mouseY)) {
-            console.log("mouse is on image:" + largetZIndexRef.current);
+            // console.log("mouse is on image:" + selectImgIndex.current);
             setLastMousePosition({ x: mouseX, y: mouseY });
             setIsDragging(true);
         }
@@ -182,8 +209,8 @@ function HomePage() {
     function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
         if (event.buttons === 1 && isDragging) {
             // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
-            if (layers[largetZIndexRef.current - 1].type === 'image') {
-                const imageLayer = layers[largetZIndexRef.current - 1] as ImageLayer;
+            if (layers[selectImgIndex.current - 1].type === 'image') {
+                const imageLayer = layers[selectImgIndex.current - 1] as ImageLayer;
                 const canvas = canvasRef.current;
                 if (!canvas) return;
                 const cavnasBox = canvas.getBoundingClientRect();
@@ -207,7 +234,7 @@ function HomePage() {
                 const newXOrigin = new Decimal(newX).plus((oldWidthOrigin * imageLayer.scale - oldWidthOrigin) / 2).toNumber();
                 const newYOrigin = new Decimal(newY).plus((oldHeightOrigin * imageLayer.scale - oldHeightOrigin) / 2).toNumber();
 
-                newLayers[largetZIndexRef.current - 1] = {
+                newLayers[selectImgIndex.current - 1] = {
                     ...imageLayer,
                     imageRangeOrigin: [newXOrigin, newYOrigin, oldWidthOrigin, oldHeightOrigin],
                     imageRange: [newX, newY, oldWidth, oldHeight]
@@ -218,16 +245,6 @@ function HomePage() {
             }
 
         }
-
-        // setMousePosition({ x: event.clientX, y: event.clientY });
-        // const canvas = canvasRef.current;
-        // if (!canvas) return;
-        // const cavnasBox = canvas.getBoundingClientRect();
-        // const mouseXString = new Decimal(event.clientX - cavnasBox.left).times(canvas.width / cavnasBox.width).toFixed(2);
-        // const mouseYString = new Decimal(event.clientY - cavnasBox.top).times(canvas.height / cavnasBox.height).toFixed(2);
-        // const mouseX = Number(mouseXString);
-        // const mouseY = Number(mouseYString);
-        // setMouseInCanvasPosition({ x: mouseX, y: mouseY });
     }
 
     // 滑鼠放開的事件
@@ -254,6 +271,7 @@ function HomePage() {
         let isMouseOver = false;
 
         // 找出最上層的圖片
+        console.log("isMouseOverLayer", layers)
         layers.forEach(layer => {
             ctx.save();
             if (layer.type === 'image') {
@@ -266,19 +284,23 @@ function HomePage() {
                 // rectPath.rect(newX, newY, newWidth, newHeight);
 
                 const [x, y, width, height] = layer.imageRange;
+                // console.log(layer.imageRange)
 
                 const rectPath = new Path2D();
                 rectPath.rect(x, y, width, height);
 
                 if (ctx.isPointInPath(rectPath, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
-                    largetZIndexRef.current = layer.zIndex;
+                    selectImgIndex.current = layer.zIndex;
+                    console.log(x, y, width, height)
+                    console.log("mousex", mouseX, "mousey", mouseY)
+                    console.log("layer.zIndex", layer.zIndex)
                     isMouseOver = true;
-                    // console.log("mouse is on image:" + largetZIndexRef.current)
+                    console.log("mouse is on image:" + selectImgIndex.current)
                 }
             }
             else {
                 if (ctx.isPointInPath(layer.path, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
-                    largetZIndexRef.current = layer.zIndex;
+                    selectImgIndex.current = layer.zIndex;
                     isMouseOver = true;
                 }
             }
@@ -323,7 +345,7 @@ function HomePage() {
         setCurrentStep(currentStep + 1);
         addACtionHistory('add')
 
-        largetZIndexRef.current = imageLayer.zIndex;
+        selectImgIndex.current = imageLayer.zIndex;
     }
 
     function handleDragStart(event: React.DragEvent<HTMLImageElement>) {
@@ -405,19 +427,19 @@ function HomePage() {
             setCurrentStep(currentStep + 1);
             addACtionHistory('add')
 
-            largetZIndexRef.current = imageLayer.zIndex;
+            selectImgIndex.current = imageLayer.zIndex;
         }
     };
 
     // 根據點選到的圖層，把largeZIndexRef.current設定成該圖層的zIndex 代表我們現在是要操作哪一個圖層
     // 同時要再點選到的時候 增加樣式
-    const hadnleLayerChoose = (event: React.MouseEvent<HTMLDivElement, MouseEvent>, zIndex: number) => {
+    const hadnleLayerChoose = (event: React.MouseEvent<HTMLDivElement, MouseEvent>, targetIndex: number) => {
         // 移除之前被選擇的 div 的 active class
         const selectedDiv = event.currentTarget;
         // 判斷是否已經有 active class
         if (selectedDiv.classList.contains('active')) {
             selectedDiv.classList.remove('active');
-            largetZIndexRef.current = 0;
+            selectImgIndex.current = 0;
         } else {
             // 移除之前被選擇的 div 的 active class
             const prevSelectedDiv = document.querySelector('.active');
@@ -427,36 +449,54 @@ function HomePage() {
 
             // 加上當前被選擇的 div 的 active class
             selectedDiv.classList.add('active');
-            largetZIndexRef.current = zIndex;
+            selectImgIndex.current = targetIndex;
         }
     }
 
-    const handleLayerDragStart = (event: React.DragEvent<HTMLDivElement>, zIndex: number) => {
-        event.dataTransfer.setData('text/plain', zIndex.toString());
+    const handleLayerDragStart = (event: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+        event.dataTransfer.setData('text/plain', targetIndex.toString());
     }
 
     const handleLayerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
     }
 
-    const handleLayerDrop = (event: React.DragEvent<HTMLDivElement>, zIndex: number) => {
+    const handleLayerDrop = (event: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+        // event.preventDefault();
+        // const draggedIndex = Number(event.dataTransfer.getData('text/plain'));
+        // console.log(draggedIndex, targetIndex)
+        // if (draggedIndex === targetIndex) return;
+        // const newLayers = [...layers];
+        // const draggedLayer = newLayers[draggedIndex];
+        // newLayers.splice(draggedIndex, 1);
+        // newLayers.splice(targetIndex, 0, draggedLayer);
+        // console.log("newLayers", newLayers)
+        // setLayers(newLayers);
+        // setLayerHistory([...layerHistory.slice(0, currentStep + 1), newLayers]);
+        // setCurrentStep(currentStep + 1);
+        // addACtionHistory('drag')
+
+        // selectImgIndex.current = draggedIndex;
+
+
         event.preventDefault();
         const draggedIndex = Number(event.dataTransfer.getData('text/plain'));
-        if (draggedIndex === zIndex) return;
-        // console.log(draggedIndex)
-
+        if (draggedIndex === targetIndex) return;
+        // Layer的內容要互相交換 但是zIndex要保持不變
         const newLayers = [...layers];
         const draggedLayer = newLayers[draggedIndex];
-        newLayers.splice(draggedIndex, 1);
-        newLayers.splice(zIndex, 0, draggedLayer);
-        console.log("newLayers", newLayers)
-        setLayers(newLayers);
-        setLayerHistory([...layerHistory.slice(0, currentStep + 1), newLayers]);
-        setCurrentStep(currentStep + 1);
-        addACtionHistory('drag')
+        const targetLayer = newLayers[targetIndex];
 
-        largetZIndexRef.current = draggedIndex;
-        // console.log(largetZIndexRef.current)
+        const draggedLayerZIndex = draggedLayer.zIndex;
+        const targetLayerZIndex = targetLayer.zIndex;
+
+        draggedLayer.zIndex = targetLayerZIndex;
+        targetLayer.zIndex = draggedLayerZIndex;
+
+        newLayers[draggedIndex] = targetLayer;
+        newLayers[targetIndex] = draggedLayer;
+
+        setLayers(newLayers);
     }
 
 
