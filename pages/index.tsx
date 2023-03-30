@@ -160,33 +160,6 @@ function HomePage() {
             }
             ctx.restore();
         });
-
-        // const canvas = canvasRef.current;
-        // if (!canvas) return;
-        // const ctx = canvas.getContext("2d");
-        // if (!ctx) return;
-
-        // ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // if (layers.length === 0) return;
-        // layers.forEach((layer, index) => { // 使用 z-index 对图层进行排序
-        //     layer.zIndex = index;
-        // });
-        // layers.sort((a, b) => (a.zIndex > b.zIndex) ? 1 : -1); // 根据 z-index 对图层进行排序
-        // layers.forEach(layer => {
-        //     ctx.save();
-        //     if (layer.type === 'image') {
-        //         const [x, y, width, height] = layer.imageRange;
-        //         ctx.drawImage(layer.image, x, y, width, height);
-        //     } else {
-        //         ctx.fillStyle = layer.fillColor;
-        //         ctx.strokeStyle = layer.strokeColor;
-        //         ctx.lineWidth = layer.stokeWidth;
-        //         ctx.fill(layer.path);
-        //         ctx.stroke(layer.path);
-        //     }
-        //     ctx.restore();
-        // });
     }
 
     // 滑鼠點擊的事件 // 點擊的時候判斷在哪一個圖片上
@@ -209,11 +182,6 @@ function HomePage() {
     function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
         if (event.buttons === 1 && isDragging) {
             // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
-
-            /*
-            方法有問題 因為index 不對應 layers的順序
-             */
-            console.log(selectImgIndex.current)
             if (layers[selectImgIndex.current - 1].type === 'image') {
                 const imageLayer = layers[selectImgIndex.current - 1] as ImageLayer;
                 const canvas = canvasRef.current;
@@ -300,7 +268,7 @@ function HomePage() {
                     console.log("mousex", mouseX, "mousey", mouseY)
                     console.log("layer.zIndex", layer.zIndex)
                     isMouseOver = true;
-                    console.log("mouse is on image:" + selectImgIndex.current)
+                    console.log("mouse is on array 中的第:" + selectImgIndex.current + "個圖片")
                 }
             }
             else {
@@ -541,6 +509,7 @@ function HomePage() {
                         {layers.map((layer, index) => {
                             return (
                                 <div key={uuid()} className="border padding-10 cursor-pointer"
+                                    onClick={(event) => hadnleLayerChoose(event, index + 1)}
                                     draggable
                                     onDragStart={(event) => handleLayerDragStart(event, index, layer.image as HTMLImageElement)}
                                     onDragOver={handleLayerDragOver}
@@ -549,7 +518,7 @@ function HomePage() {
                                     {layer.type} {layer.zIndex}
                                 </div>
                             )
-                        })}                     
+                        })}
                     </div>
                 </div>
             </div>
