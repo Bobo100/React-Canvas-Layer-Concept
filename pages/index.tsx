@@ -209,6 +209,11 @@ function HomePage() {
     function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
         if (event.buttons === 1 && isDragging) {
             // 判斷滑鼠是否在圖片上 與 獲得目前位置最上層的圖片index
+
+            /*
+            方法有問題 因為index 不對應 layers的順序
+             */
+            console.log(selectImgIndex.current)
             if (layers[selectImgIndex.current - 1].type === 'image') {
                 const imageLayer = layers[selectImgIndex.current - 1] as ImageLayer;
                 const canvas = canvasRef.current;
@@ -272,7 +277,7 @@ function HomePage() {
 
         // 找出最上層的圖片
         console.log("isMouseOverLayer", layers)
-        layers.forEach(layer => {
+        layers.forEach((layer, index) => {
             ctx.save();
             if (layer.type === 'image') {
                 // const [x, y, width, height] = layer.imageRangeOrigin;
@@ -290,7 +295,7 @@ function HomePage() {
                 rectPath.rect(x, y, width, height);
 
                 if (ctx.isPointInPath(rectPath, mouseX, mouseY)) { // 利用 isPointInPath() 判斷鼠標位置是否在路徑內
-                    selectImgIndex.current = layer.zIndex;
+                    selectImgIndex.current = index + 1;
                     console.log(x, y, width, height)
                     console.log("mousex", mouseX, "mousey", mouseY)
                     console.log("layer.zIndex", layer.zIndex)
@@ -356,10 +361,6 @@ function HomePage() {
         setStartCoords(startCoords);
         setImage(event.currentTarget);
     }
-
-    function handleDragEnd(event: React.DragEvent<HTMLImageElement>) {
-    }
-
 
     /// 這邊是控制圖層的部分
     const handleUndo = () => {
@@ -453,8 +454,9 @@ function HomePage() {
         }
     }
 
-    const handleLayerDragStart = (event: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
+    const handleLayerDragStart = (event: React.DragEvent<HTMLDivElement>, targetIndex: number, image: HTMLImageElement) => {
         event.dataTransfer.setData('text/plain', targetIndex.toString());
+        setImage(image);
     }
 
     const handleLayerDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -462,45 +464,21 @@ function HomePage() {
     }
 
     const handleLayerDrop = (event: React.DragEvent<HTMLDivElement>, targetIndex: number) => {
-        // event.preventDefault();
-        // const draggedIndex = Number(event.dataTransfer.getData('text/plain'));
-        // console.log(draggedIndex, targetIndex)
-        // if (draggedIndex === targetIndex) return;
-        // const newLayers = [...layers];
-        // const draggedLayer = newLayers[draggedIndex];
-        // newLayers.splice(draggedIndex, 1);
-        // newLayers.splice(targetIndex, 0, draggedLayer);
-        // console.log("newLayers", newLayers)
-        // setLayers(newLayers);
-        // setLayerHistory([...layerHistory.slice(0, currentStep + 1), newLayers]);
-        // setCurrentStep(currentStep + 1);
-        // addACtionHistory('drag')
-
-        // selectImgIndex.current = draggedIndex;
-
-
         event.preventDefault();
         const draggedIndex = Number(event.dataTransfer.getData('text/plain'));
+        console.log(draggedIndex, targetIndex)
         if (draggedIndex === targetIndex) return;
-        // Layer的內容要互相交換 但是zIndex要保持不變
         const newLayers = [...layers];
         const draggedLayer = newLayers[draggedIndex];
-        const targetLayer = newLayers[targetIndex];
-
-        const draggedLayerZIndex = draggedLayer.zIndex;
-        const targetLayerZIndex = targetLayer.zIndex;
-
-        draggedLayer.zIndex = targetLayerZIndex;
-        targetLayer.zIndex = draggedLayerZIndex;
-
-        newLayers[draggedIndex] = targetLayer;
-        newLayers[targetIndex] = draggedLayer;
-
+        newLayers.splice(draggedIndex, 1);
+        newLayers.splice(targetIndex, 0, draggedLayer);
         setLayers(newLayers);
+        const newHistory = layerHistory.slice(0, currentStep + 1);
+        newHistory.push(newLayers);
+        setLayerHistory(newHistory);
+        setCurrentStep(currentStep + 1);
+        addACtionHistory('drag layer order')
     }
-
-
-
 
     return (
         <Layout>
@@ -508,10 +486,6 @@ function HomePage() {
                 <title>圖層</title>
             </Head>
             <div className="control flex">
-                {/* <div>{mousePosition.x}</div>
-                <div>{mousePosition.y}</div>
-                <div>{mouseInCanvasPosition.x}</div>
-                <div>{mouseInCanvasPosition.y}</div> */}
                 <button onClick={handleUndo}>上一步</button>
                 <button onClick={handleRedo}>下一步</button>
                 <button onClick={handleClear}>清除</button>
@@ -531,21 +505,18 @@ function HomePage() {
                         <ImageNextJs src="/images/01.jpg" width={20} height={20} alt=""
                             draggable
                             onDragStart={handleDragStart}
-                        // onDragEnd={handleDragEnd}
                         />
                     </div>
                     <div>
                         <ImageNextJs src="/images/02.jpg" width={20} height={20} alt=""
                             draggable
                             onDragStart={handleDragStart}
-                        // onDragEnd={handleDragEnd}
                         />
                     </div>
                     <div>
                         <ImageNextJs src="/images/03.jpg" width={20} height={20} alt=""
                             draggable
                             onDragStart={handleDragStart}
-                        // onDragEnd={handleDragEnd}
                         />
                     </div>
                 </div>
@@ -565,35 +536,20 @@ function HomePage() {
                 </div>
 
                 <div>
-                    <div>圖層</div>
-                    <div className="overflow-y-scroll height-250">
-                        {layers.map((layer, index) => {
-                            return (
-                                <div key={uuid()} className="border padding-10 cursor-pointer"
-                                    onClick={(event) => hadnleLayerChoose(event, layer.zIndex)}
-                                >
-                                    {layer.type} {layer.zIndex}
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                <div>
                     <div>圖層 (可修改順序 zIndex)</div>
                     <div className="overflow-y-scroll height-250">
                         {layers.map((layer, index) => {
                             return (
                                 <div key={uuid()} className="border padding-10 cursor-pointer"
                                     draggable
-                                    onDragStart={(event) => handleLayerDragStart(event, index)}
+                                    onDragStart={(event) => handleLayerDragStart(event, index, layer.image as HTMLImageElement)}
                                     onDragOver={handleLayerDragOver}
                                     onDrop={(event) => handleLayerDrop(event, index)}
                                 >
                                     {layer.type} {layer.zIndex}
                                 </div>
                             )
-                        })}
+                        })}                     
                     </div>
                 </div>
             </div>
